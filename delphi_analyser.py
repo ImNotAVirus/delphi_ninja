@@ -71,6 +71,7 @@ class DelphiClass(object):
         self.code_section = bv.sections['CODE']
         self.class_name = ''
         self.instance_size = 0
+        self.parent_vmt = 0
 
         if not self._check_self_ptr():
             return
@@ -79,6 +80,9 @@ class DelphiClass(object):
             return
 
         if not self._parse_instance_size():
+            return
+
+        if not self._parse_parent_vmt():
             return
 
         self.is_valid = True
@@ -94,8 +98,8 @@ class DelphiClass(object):
         return f'<{self.class_name} address=0x{self.vmt_address:08X} size=0x{self.instance_size:X}>'
 
 
-    def is_valid(self):
-        return self.is_valid
+    def start(self):
+        return self.vmt_address + cVmtSelfPtr
 
 
     ## Private functions
@@ -143,6 +147,18 @@ class DelphiClass(object):
 
         self.br.seek(instance_size_addy)
         self.instance_size = self.br.read32()
+
+        return True
+
+
+    def _parse_parent_vmt(self) -> bool:
+        parent_vmt_addy = self.vmt_address + cVmtParent
+
+        if not self._isValidCodeAdr(parent_vmt_addy, True):
+            return False
+
+        self.br.seek(parent_vmt_addy)
+        self.parent_vmt = self.br.read32()
 
         return True
 
