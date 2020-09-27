@@ -10,7 +10,7 @@ from bnlogger import BNLogger
 
 
 def create_graph(vmt_map: Dict[int, DelphiClass]):
-    g = Digraph('G', filename='vmt.gv')
+    g = Digraph('VMT')
 
     for vmt in vmt_map.values():
         if vmt.parent_vmt == 0 and vmt.class_name == 'TObject':
@@ -25,7 +25,7 @@ def create_graph(vmt_map: Dict[int, DelphiClass]):
 
         g.edge(vmt_map[vmt.parent_vmt].class_name, vmt.class_name)
 
-    g.view()
+    g.view('VMT', cleanup=True)
 
 
 def main(target: str, delphi_version: int):
@@ -59,7 +59,7 @@ def main(target: str, delphi_version: int):
         if not delphi_class.is_valid:
             continue
 
-        vmt_map[delphi_class.start()] = delphi_class
+        vmt_map[delphi_class.start] = delphi_class
 
     BNLogger.log('Creating Graph...')
     create_graph(vmt_map)
