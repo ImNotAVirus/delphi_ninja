@@ -14,26 +14,25 @@ class ClassFinder(object):
     '''
 
     def __init__(self, bv: BinaryView, delphi_version: int):
-        self.bv = bv
-        self.br = BinaryReader(bv)
-        self.code_section = bv.sections['CODE']
-        self.vmt_offsets = VMTOffsets(delphi_version)
-        self.seek(0)
+        self._bv = bv
+        self._br = BinaryReader(bv)
+        self._code_section = bv.sections['CODE']
+        self._vmt_offsets = VMTOffsets(delphi_version)
+        self.seek_to_code(0)
 
 
-    def seek(self, offset: int):
-        code_start = self.code_section.start
-        self.br.seek(code_start + offset)
+    def seek_to_code(self, offset: int):
+        self._br.seek(self._code_section.start + offset)
 
 
     def get_possible_vmt(self):
-        address_size = self.bv.arch.address_size
+        address_size = self._bv.arch.address_size
         assert address_size == 4
 
-        while self.br.offset <= self.code_section.end - address_size:
-            begin = self.br.offset
-            class_vmt = self.br.read32()
-            if begin == class_vmt + self.vmt_offsets.cVmtSelfPtr:
+        while self._br.offset <= self._code_section.end - address_size:
+            begin = self._br.offset
+            class_vmt = self._br.read32()
+            if begin == class_vmt + self._vmt_offsets.cVmtSelfPtr:
                 return class_vmt
 
 
@@ -47,15 +46,15 @@ class DelphiClass(object):
         address_size = bv.arch.address_size
         assert address_size == 4
 
-        self.vmt_address = address
-        self.is_valid = False
-        self.bv = bv
-        self.br = BinaryReader(bv)
-        self.code_section = bv.sections['CODE']
-        self.vmt_offsets = VMTOffsets(delphi_version)
-        self.class_name = ''
-        self.instance_size = 0
-        self.parent_vmt = 0
+        self._vmt_address = address
+        self._is_valid = False
+        self._bv = bv
+        self._br = BinaryReader(bv)
+        self._code_section = bv.sections['CODE']
+        self._vmt_offsets = VMTOffsets(delphi_version)
+        self._class_name = ''
+        self._instance_size = 0
+        self._parent_vmt = 0
 
         if not self._check_self_ptr():
             return
@@ -69,7 +68,7 @@ class DelphiClass(object):
         if not self._parse_parent_vmt():
             return
 
-        self.is_valid = True
+        self._is_valid = True
 
 
     def __repr__(self):
@@ -77,72 +76,94 @@ class DelphiClass(object):
 
 
     def __str__(self):
-        if not self.is_valid:
-            return f'<InvalidClass address=0x{self.vmt_address:08X}>'
-        return f'<{self.class_name} address=0x{self.vmt_address:08X} size=0x{self.instance_size:X}>'
+        if not self._is_valid:
+            return f'<InvalidClass address=0x{self._vmt_address:08X}>'
+        return f'<{self._class_name} address=0x{self._vmt_address:08X} size=0x{self._instance_size:X}>'
 
+    ## Properties
 
+    @property
+    def vmt_address(self):
+        return self._vmt_address
+
+    @property
+    def is_valid(self):
+        return self._is_valid
+
+    @property
+    def class_name(self):
+        return self._class_name
+
+    @property
+    def instance_size(self):
+        return self._instance_size
+
+    @property
+    def parent_vmt(self):
+        return self._parent_vmt
+
+    @property
     def start(self):
-        return self.vmt_address + self.vmt_offsets.cVmtSelfPtr
+        return self._vmt_address + self._vmt_offsets.cVmtSelfPtr
 
 
     ## Private functions
 
     def _check_self_ptr(self) -> bool:
-        self_ptr_addy = self.vmt_address + self.vmt_offsets.cVmtSelfPtr
+        self_ptr_addy = self._vmt_address + self._vmt_offsets.cVmtSelfPtr
 
         if not self._isValidCodeAdr(self_ptr_addy):
             return False
 
-        self.br.seek(self_ptr_addy)
-        self_ptr = self.br.read32()
+        self._br.seek(self_ptr_addy)
+        self_ptr = self._br.read32()
 
-        return self_ptr == self.vmt_address
+        return self_ptr == self._vmt_address
 
 
     def _parse_name(self) -> bool:
-        name_addy = self.vmt_address + self.vmt_offsets.cVmtClassName
+        name_addy = self._vmt_address + self._vmt_offsets.cVmtClassName
 
         if not self._isValidCodeAdr(name_addy):
             return False
 
-        self.br.seek(name_addy)
-        class_name_addr = self.br.read32()
+        self._br.seek(name_addy)
+        class_name_addr = self._br.read32()
 
         if not self._isValidCodeAdr(class_name_addr):
             return False
 
-        self.br.seek(class_name_addr)
-        name_len = self.br.read8()
-        class_name = self.br.read(name_len)
+        self._br.seek(class_name_addr)
+        name_len = self._br.read8()
+        class_name = self._br.read(name_len)
 
         if MATCH_CLASS_NAME.match(class_name) is None:
             return False
 
-        self.class_name = class_name.decode()
+        self._class_name = class_name.decode()
         return True
 
 
     def _parse_instance_size(self) -> bool:
-        instance_size_addy = self.vmt_address + self.vmt_offsets.cVmtInstanceSize
+        instance_size_addy = self._vmt_address + self._vmt_offsets.cVmtInstanceSize
 
         if not self._isValidCodeAdr(instance_size_addy):
             return False
 
-        self.br.seek(instance_size_addy)
-        self.instance_size = self.br.read32()
+        self._br.seek(instance_size_addy)
+        self._instance_size = self._br.read32()
 
         return True
 
 
     def _parse_parent_vmt(self) -> bool:
-        parent_vmt_addy = self.vmt_address + self.vmt_offsets.cVmtParent
+        parent_vmt_addy = self._vmt_address + self._vmt_offsets.cVmtParent
 
         if not self._isValidCodeAdr(parent_vmt_addy, True):
             return False
 
-        self.br.seek(parent_vmt_addy)
-        self.parent_vmt = self.br.read32()
+        self._br.seek(parent_vmt_addy)
+        self._parent_vmt = self._br.read32()
 
         return True
 
@@ -150,8 +171,8 @@ class DelphiClass(object):
     def _isValidCodeAdr(self, addy: int, allow_null=False) -> bool:
         if addy == 0:
             return True
-        return addy >= self.code_section.start and addy < self.code_section.end
+        return addy >= self._code_section.start and addy < self._code_section.end
 
 
     def _seek_to_code(self, offset: int):
-        self.br.seek(self.code_section.start + offset)
+        self._br.seek(self._code_section.start + offset)
