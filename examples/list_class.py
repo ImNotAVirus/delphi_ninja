@@ -7,7 +7,7 @@ from delphi_analyser import ClassFinder, DelphiClass
 from bnlogger import BNLogger
 
 
-def main(target: str):
+def main(target: str, delphi_version: int):
     # Just disable some features for large binaries
     opts = {
         'analysis.mode': 'controlFlow',
@@ -28,17 +28,17 @@ def main(target: str):
     BNLogger.log('-----------------------------')
     BNLogger.log('Searching for VMT...')
 
-    finder = ClassFinder(bv)
+    finder = ClassFinder(bv, delphi_version)
     addy = finder.get_possible_vmt()
 
     while addy:
-        BNLogger.log(DelphiClass(bv, addy))
+        BNLogger.log(DelphiClass(bv, delphi_version, addy))
         addy = finder.get_possible_vmt()
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print(f'Usage: {sys.argv[0]} <file_name>')
+    if len(sys.argv) != 3:
+        print(f'Usage: {sys.argv[0]} <file_name> <delphi_version>')
         exit(-1)
 
-    main(sys.argv[1])
+    main(sys.argv[1], int(sys.argv[2]))

@@ -2,26 +2,8 @@
 import re
 from binaryninja import BinaryReader, BinaryView
 
+from constants import VMTOffsets
 
-cVmtSelfPtr             = -0x4C
-cVmtIntfTable           = -0x48
-cVmtAutoTable           = -0x44
-cVmtInitTable           = -0x40
-cVmtTypeInfo            = -0x3C
-cVmtFieldTable          = -0x38
-cVmtMethodTable         = -0x34
-cVmtDynamicTable        = -0x30
-cVmtClassName           = -0x2C
-cVmtInstanceSize        = -0x28
-cVmtParent              = -0x24
-cVmtSafeCallException   = -0x20
-cVmtAfterConstruction   = -0x1C
-cVmtBeforeDestruction   = -0x18
-cVmtDispatch            = -0x14
-cVmtDefaultHandler      = -0x10
-cVmtNewInstance         = -0x0C
-cVmtFreeInstance        = -0x08
-cVmtDestroy             = -0x04
 
 MATCH_CLASS_NAME = re.compile(rb'^[\w.:]+$')
 
@@ -31,10 +13,11 @@ class ClassFinder(object):
     TODO: Doc
     '''
 
-    def __init__(self, bv: BinaryView):
+    def __init__(self, bv: BinaryView, delphi_version: int):
         self.bv = bv
         self.br = BinaryReader(bv)
         self.code_section = bv.sections['CODE']
+        self.vmt_offsets = VMTOffsets(delphi_version)
         self.seek(0)
 
 
@@ -50,7 +33,7 @@ class ClassFinder(object):
         while self.br.offset <= self.code_section.end - address_size:
             begin = self.br.offset
             class_vmt = self.br.read32()
-            if begin == class_vmt + cVmtSelfPtr:
+            if begin == class_vmt + self.vmt_offsets.cVmtSelfPtr:
                 return class_vmt
 
 
@@ -59,7 +42,7 @@ class DelphiClass(object):
     TODO: Doc
     '''
 
-    def __init__(self, bv: BinaryView, address: int):
+    def __init__(self, bv: BinaryView, delphi_version: int, address: int):
         # 64 bits is currently not supported
         address_size = bv.arch.address_size
         assert address_size == 4
@@ -69,6 +52,7 @@ class DelphiClass(object):
         self.bv = bv
         self.br = BinaryReader(bv)
         self.code_section = bv.sections['CODE']
+        self.vmt_offsets = VMTOffsets(delphi_version)
         self.class_name = ''
         self.instance_size = 0
         self.parent_vmt = 0
@@ -99,13 +83,13 @@ class DelphiClass(object):
 
 
     def start(self):
-        return self.vmt_address + cVmtSelfPtr
+        return self.vmt_address + self.vmt_offsets.cVmtSelfPtr
 
 
     ## Private functions
 
     def _check_self_ptr(self) -> bool:
-        self_ptr_addy = self.vmt_address + cVmtSelfPtr
+        self_ptr_addy = self.vmt_address + self.vmt_offsets.cVmtSelfPtr
 
         if not self._isValidCodeAdr(self_ptr_addy):
             return False
@@ -117,7 +101,7 @@ class DelphiClass(object):
 
 
     def _parse_name(self) -> bool:
-        name_addy = self.vmt_address + cVmtClassName
+        name_addy = self.vmt_address + self.vmt_offsets.cVmtClassName
 
         if not self._isValidCodeAdr(name_addy):
             return False
@@ -140,7 +124,7 @@ class DelphiClass(object):
 
 
     def _parse_instance_size(self) -> bool:
-        instance_size_addy = self.vmt_address + cVmtInstanceSize
+        instance_size_addy = self.vmt_address + self.vmt_offsets.cVmtInstanceSize
 
         if not self._isValidCodeAdr(instance_size_addy):
             return False
@@ -152,7 +136,7 @@ class DelphiClass(object):
 
 
     def _parse_parent_vmt(self) -> bool:
-        parent_vmt_addy = self.vmt_address + cVmtParent
+        parent_vmt_addy = self.vmt_address + self.vmt_offsets.cVmtParent
 
         if not self._isValidCodeAdr(parent_vmt_addy, True):
             return False
