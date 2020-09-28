@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import re
 import copy
-from binaryninja import BinaryReader, BinaryView
-from typing import List, Union
+from binaryninja import BinaryReader, BinaryView, Symbol, SymbolType, LogLevel
+from typing import Mapping, Union
 
 from constants import VMTOffsets
+from bnlogger import BNLogger
 
 
 MATCH_CLASS_NAME = re.compile(rb'^[\w.:]+$')
@@ -57,7 +58,7 @@ class DelphiClass(object):
         self._class_name = ''
         self._instance_size = 0
         self._parent_vmt = 0
-        self._methods: List[int] = []
+        self._virtual_methods: Mapping[int, str] = {}
 
         if not self._check_self_ptr():
             return
@@ -71,7 +72,7 @@ class DelphiClass(object):
         if not self._parse_parent_vmt():
             return
 
-        if not self._parse_methods():
+        if not self._parse_virtual_methods():
             return
 
         self._is_valid = True
@@ -110,6 +111,10 @@ class DelphiClass(object):
         return self._parent_vmt
 
     @property
+    def virtual_methods(self) -> Mapping[int, str]:
+        return self._virtual_methods
+
+    @property
     def vmt_offsets(self) -> VMTOffsets:
         return copy.copy(self._vmt_offsets)
 
@@ -129,37 +134,36 @@ class DelphiClass(object):
         if not self._is_valid:
             return
 
-        self._br.seek(self._vmt_address + offset)
+        if not self._seek_to_vmt_offset(offset):
+            return
+
         return self._br.read32()
 
     ## Private functions
 
     def _check_self_ptr(self) -> bool:
-        self_ptr_addy = self._vmt_address + self._vmt_offsets.cVmtSelfPtr
-
-        if not self._isValidCodeAdr(self_ptr_addy):
+        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtSelfPtr):
             return False
 
-        self._br.seek(self_ptr_addy)
         self_ptr = self._br.read32()
-
         return self_ptr == self._vmt_address
 
 
     def _parse_name(self) -> bool:
-        name_addy = self._vmt_address + self._vmt_offsets.cVmtClassName
+        class_name_addr = self._get_class_name_addr()
 
-        if not self._isValidCodeAdr(name_addy):
-            return False
-
-        self._br.seek(name_addy)
-        class_name_addr = self._br.read32()
-
-        if not self._isValidCodeAdr(class_name_addr):
+        if class_name_addr is None:
             return False
 
         self._br.seek(class_name_addr)
         name_len = self._br.read8()
+
+        if name_len == 0:
+            BNLogger.log(
+                f'Care, VMT without name (len: 0) detected at 0x{self._vmt_address:08X}',
+                LogLevel.WarningLog
+            )
+
         class_name = self._br.read(name_len)
 
         if MATCH_CLASS_NAME.match(class_name) is None:
@@ -170,38 +174,99 @@ class DelphiClass(object):
 
 
     def _parse_instance_size(self) -> bool:
-        instance_size_addy = self._vmt_address + self._vmt_offsets.cVmtInstanceSize
-
-        if not self._isValidCodeAdr(instance_size_addy):
+        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtInstanceSize):
             return False
 
-        self._br.seek(instance_size_addy)
         self._instance_size = self._br.read32()
-
         return True
 
 
     def _parse_parent_vmt(self) -> bool:
-        parent_vmt_addy = self._vmt_address + self._vmt_offsets.cVmtParent
-
-        if not self._isValidCodeAdr(parent_vmt_addy, True):
+        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtParent):
             return False
 
-        self._br.seek(parent_vmt_addy)
         self._parent_vmt = self._br.read32()
-
         return True
 
 
-    def _parse_methods(self) -> bool:
+    def _parse_virtual_methods(self) -> bool:
+        class_name_addr = self._get_class_name_addr()
+
+        if class_name_addr is None:
+            return False
+
+        address_size = self._bv.address_size
+        offsets = self.vmt_offsets.__dict__.items()
+        offset_map = {y:x for x, y in offsets}
+
+        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtParent + address_size):
+            return False
+
+        while self._br.offset < class_name_addr:
+            field_value = self._br.read32()
+
+            if field_value == 0:
+                continue
+
+            if not self._isValidCodeAdr(field_value):
+                # FIXME: I don't know if this is a normal behaviour (cf. `Exception` Class)
+                break
+
+            field_offset = self._br.offset - self._vmt_address - address_size
+
+            if field_offset in offset_map:
+                method_name = f'{self.class_name}.{offset_map[field_offset][4:]}'
+            else:
+                method_name = f'{self.class_name}.sub_{field_value:x}'
+
+            if self._bv.get_function_at(field_value) is None:
+                self._bv.create_user_function(field_value)
+
+            function_name = self._bv.get_function_at(field_value).name
+
+            if not function_name.startswith('sub_'):
+                method_name = function_name
+            else:
+                self._bv.define_user_symbol(Symbol(
+                    SymbolType.FunctionSymbol,
+                    field_value,
+                    method_name
+                ))
+
+            self._virtual_methods[field_value] = method_name
+
+        if self._br.offset != class_name_addr:
+            # FIXME: I don't know if this is a normal behaviour (cf. `Exception` Class)
+            BNLogger.log(f'Invalid offset detected for {self.class_name}', LogLevel.WarningLog)
+
         return True
 
 
     def _isValidCodeAdr(self, addy: int, allow_null=False) -> bool:
         if addy == 0:
-            return True
+            return allow_null
         return addy >= self._code_section.start and addy < self._code_section.end
 
 
     def _seek_to_code(self, offset: int):
         self._br.seek(self._code_section.start + offset)
+
+
+    def _seek_to_vmt_offset(self, offset: int) -> bool:
+        if not self._isValidCodeAdr(self._vmt_address + offset):
+            return False
+
+        self._br.seek(self._vmt_address + offset)
+        return True
+
+
+    def _get_class_name_addr(self) -> Union[None, int]:
+        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtClassName):
+            return None
+
+        class_name_addr = self._br.read32()
+
+        if not self._isValidCodeAdr(class_name_addr):
+            return None
+
+        return class_name_addr
