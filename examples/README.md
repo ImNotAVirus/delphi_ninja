@@ -52,3 +52,15 @@ TODO
     > python3 vmt_visualize.py binary.exe 7
 
 ![graph](./assets/graph.png)
+
+## create_vmt_struct.py
+
+**Description**:
+
+TODO
+
+**Example**:
+
+    > python3 create_vmt_struct.py binary.exe 7
+
+![graph](./assets/vmt_struct.png)
