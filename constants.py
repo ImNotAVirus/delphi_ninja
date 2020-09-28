@@ -1,3 +1,4 @@
+from binaryninja import Architecture, Type
 from enum import IntEnum
 
 
@@ -106,3 +107,18 @@ class VMTOffsets(object):
             # self.cVmtCreateObject = 0xC
         else:
             raise RuntimeError(f'Unsuported Delphi version {delphi_version}')
+
+
+class VMTFieldTypes(object):
+    def __init__(self, arch: Architecture):
+        self.cVmtSelfPtr = Type.pointer(arch, Type.void())
+        self.cVmtIntfTable = Type.pointer(arch, Type.void())
+        self.cVmtAutoTable = Type.pointer(arch, Type.void())
+        self.cVmtInitTable = Type.pointer(arch, Type.void())
+        self.cVmtTypeInfo = Type.pointer(arch, Type.void())
+        self.cVmtFieldTable = Type.pointer(arch, Type.void())
+        self.cVmtMethodTable = Type.pointer(arch, Type.void())
+        self.cVmtDynamicTable = Type.pointer(arch, Type.void())
+        self.cVmtClassName = Type.pointer(arch, Type.void())
+        self.cVmtInstanceSize = Type.int(4)
+        self.cVmtParent = Type.pointer(arch, Type.void())
