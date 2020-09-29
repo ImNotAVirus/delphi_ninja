@@ -2,7 +2,7 @@
 import re
 import copy
 from binaryninja import BinaryReader, BinaryView, Symbol, SymbolType, LogLevel
-from typing import Mapping, Union
+from typing import List, Mapping, Union
 
 from constants import VMTOffsets
 from bnlogger import BNLogger
@@ -139,7 +139,8 @@ class DelphiClass(object):
 
         return self._br.read32()
 
-    ## Private functions
+
+    ## Protected methods
 
     def _check_self_ptr(self) -> bool:
         if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtSelfPtr):
@@ -198,19 +199,22 @@ class DelphiClass(object):
         address_size = self._bv.address_size
         offsets = self.vmt_offsets.__dict__.items()
         offset_map = {y:x for x, y in offsets}
+        tables_addr = self.__get_vmt_tables_addr()
 
         if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtParent + address_size):
             return False
 
-        while self._br.offset < class_name_addr:
+        while self._br.offset < class_name_addr and self._br.offset not in tables_addr:
             field_value = self._br.read32()
 
             if field_value == 0:
                 continue
 
             if not self._isValidCodeAdr(field_value):
-                # FIXME: I don't know if this is a normal behaviour (cf. `Exception` Class)
-                break
+                prev_offset = self._br.offset - address_size
+                raise RuntimeError(f'Invalid code address deteted at 0x{prev_offset:08X} '
+                    '({self.class_name})\n If you think it\'s a bug, please open an issue on '
+                    'Github with the used binary or the full VMT (fields + VMT) as an attachment')
 
             field_offset = self._br.offset - self._vmt_address - address_size
 
@@ -234,10 +238,6 @@ class DelphiClass(object):
                 ))
 
             self._virtual_methods[field_value] = method_name
-
-        if self._br.offset != class_name_addr:
-            # FIXME: I don't know if this is a normal behaviour (cf. `Exception` Class)
-            BNLogger.log(f'Invalid offset detected for {self.class_name}', LogLevel.WarningLog)
 
         return True
 
@@ -270,3 +270,26 @@ class DelphiClass(object):
             return None
 
         return class_name_addr
+
+
+    # Private methods
+
+    def __get_vmt_tables_addr(self) -> Union[None, List[int]]:
+        if not self._seek_to_vmt_offset(self.vmt_offsets.cVmtIntfTable):
+            return
+
+        result = []
+        stop_at = self._vmt_address + self.vmt_offsets.cVmtClassName
+
+        while self._br.offset != stop_at:
+            address = self._br.read32()
+
+            if address < 1:
+                continue
+
+            if not self._isValidCodeAdr(address):
+                raise RuntimeError('Invalid table address detected')
+
+            result.append(address)
+
+        return result
