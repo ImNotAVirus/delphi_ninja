@@ -1,22 +1,36 @@
-# DelphiNinja
+# Delphi VMT Analyzer (v0.1.0)
+Author: **ImNotAVirus**
 
-**TODO**: Description
+_Find Delphi VMTs and generate their structures_
 
-## Features
+## Description:
 
-- [x] Ability to scan a binary and find potential VMT addresses
-- [x] Get ClassName from a VMT address
-- [x] Get ParentVmt from a VMT address
-- [x] Get InstanceSize from a VMT address
-- [x] Get ClassMethods from a VMT address
-- [ ] Get ClassMembers for a DelphiClass (inspect methods?)
-- [x] Create Binary Ninja structure for each VMT
-- [ ] Create Binary Ninja structure for a DelphiClass
-- [ ] For ClassMethods, set `this` type (`ECX` I think) to structure
-- [ ] Export all Delphi structures to C/C++ code
-- [ ] Auto detect Delphi version
-- [ ] Load IDR's Knowledge bases for system types
+TODO: Description
 
-## TODO
+## Installation Instructions
 
-- [ ] Support 64 bits binaries (`read32` -> `read64`, offsets, ...)
+### Darwin
+
+No special instructions, package manager is recommended
+
+### Windows
+
+No special instructions, package manager is recommended
+
+### Linux
+
+No special instructions, package manager is recommended
+
+## Minimum Version
+
+This plugin requires the following minimum version of Binary Ninja:
+
+* 0
+
+## License
+
+This plugin is released under a MIT license.
+
+## Metadata Version
+
+2
