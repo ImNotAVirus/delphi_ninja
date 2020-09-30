@@ -21,10 +21,10 @@ class ClassFinder(object):
         self._br = BinaryReader(bv)
         self._code_section = bv.sections['CODE']
         self._vmt_offsets = VMTOffsets(delphi_version)
-        self.seek_to_code(0)
+        self.seek_to_code_offset(0)
 
 
-    def seek_to_code(self, offset: int):
+    def seek_to_code_offset(self, offset: int):
         self._br.seek(self._code_section.start + offset)
 
 
@@ -127,23 +127,49 @@ class DelphiClass(object):
         end = 0 # ????
         return end - self.start
 
+    @property
+    def br_offset(self) -> int:
+        return self._br.offset
+
 
     ## Public API
 
-    def read32(self, offset: int) -> Union[None, int]:
-        if not self._is_valid:
-            return
+    def seek_to_code(self, address: int) -> bool:
+        if not self._isValidCodeAdr(address):
+            return False
 
-        if not self._seek_to_vmt_offset(offset):
-            return
+        self._br.seek(address)
+        return True
 
+
+    def seek_to_code_offset(self, offset: int) -> bool:
+        if not self._isValidCodeAdr(self._code_section.start + offset):
+            return False
+
+        self._br.seek(self._code_section.start + offset)
+        return True
+
+
+    def seek_to_vmt_offset(self, offset: int) -> bool:
+        if not self._isValidCodeAdr(self._vmt_address + offset):
+            return False
+
+        self._br.seek(self._vmt_address + offset)
+        return True
+
+
+    def read8(self) -> Union[None, int]:
+        return self._br.read8()
+
+
+    def read32(self) -> Union[None, int]:
         return self._br.read32()
 
 
     ## Protected methods
 
     def _check_self_ptr(self) -> bool:
-        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtSelfPtr):
+        if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtSelfPtr):
             return False
 
         self_ptr = self._br.read32()
@@ -175,7 +201,7 @@ class DelphiClass(object):
 
 
     def _parse_instance_size(self) -> bool:
-        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtInstanceSize):
+        if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtInstanceSize):
             return False
 
         self._instance_size = self._br.read32()
@@ -183,7 +209,7 @@ class DelphiClass(object):
 
 
     def _parse_parent_vmt(self) -> bool:
-        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtParent):
+        if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent):
             return False
 
         self._parent_vmt = self._br.read32()
@@ -201,7 +227,7 @@ class DelphiClass(object):
         offset_map = {y:x for x, y in offsets}
         tables_addr = self.__get_vmt_tables_addr()
 
-        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtParent + address_size):
+        if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent + address_size):
             return False
 
         while self._br.offset < class_name_addr and self._br.offset not in tables_addr:
@@ -235,20 +261,8 @@ class DelphiClass(object):
         return addy >= self._code_section.start and addy < self._code_section.end
 
 
-    def _seek_to_code(self, offset: int):
-        self._br.seek(self._code_section.start + offset)
-
-
-    def _seek_to_vmt_offset(self, offset: int) -> bool:
-        if not self._isValidCodeAdr(self._vmt_address + offset):
-            return False
-
-        self._br.seek(self._vmt_address + offset)
-        return True
-
-
     def _get_class_name_addr(self) -> Union[None, int]:
-        if not self._seek_to_vmt_offset(self._vmt_offsets.cVmtClassName):
+        if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtClassName):
             return None
 
         class_name_addr = self._br.read32()
@@ -262,7 +276,7 @@ class DelphiClass(object):
     # Private methods
 
     def __get_vmt_tables_addr(self) -> Union[None, List[int]]:
-        if not self._seek_to_vmt_offset(self.vmt_offsets.cVmtIntfTable):
+        if not self.seek_to_vmt_offset(self.vmt_offsets.cVmtIntfTable):
             return
 
         result = []
