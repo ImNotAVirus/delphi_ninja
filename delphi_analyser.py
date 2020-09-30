@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import re
 import copy
-from binaryninja import BinaryReader, BinaryView, Symbol, SymbolType, LogLevel
+from binaryninja import BinaryReader, BinaryView, LogLevel
 from typing import List, Mapping, Union
 
 from constants import VMTOffsets
@@ -219,23 +219,10 @@ class DelphiClass(object):
             field_offset = self._br.offset - self._vmt_address - address_size
 
             if field_offset in offset_map:
+                # Remove `cVmt` prefix
                 method_name = f'{self.class_name}.{offset_map[field_offset][4:]}'
             else:
                 method_name = f'{self.class_name}.sub_{field_value:x}'
-
-            if self._bv.get_function_at(field_value) is None:
-                self._bv.create_user_function(field_value)
-
-            function_name = self._bv.get_function_at(field_value).name
-
-            if not function_name.startswith('sub_'):
-                method_name = function_name
-            else:
-                self._bv.define_user_symbol(Symbol(
-                    SymbolType.FunctionSymbol,
-                    field_value,
-                    method_name
-                ))
 
             self._virtual_methods[field_value] = method_name
 
