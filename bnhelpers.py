@@ -1,5 +1,4 @@
 from binaryninja import BinaryView, Symbol, SymbolType, types, Type
-import struct
 
 from delphi_analyser import DelphiClass
 from constants import VMTFieldTypes
@@ -39,6 +38,20 @@ class BNHelpers(object):
             if value not in vmt.virtual_methods:
                 break
 
+            # Create function if not exists
+            if bv.get_function_at(value) is None:
+                bv.create_user_function(value)
+
+            function_name = bv.get_function_at(value).name
+            method_name = vmt.virtual_methods[value]
+
+            if function_name.startswith('sub_'):
+                bv.define_user_symbol(Symbol(
+                    SymbolType.FunctionSymbol,
+                    value,
+                    method_name
+                ))
+
             # Add field to structure
             method = bv.get_function_at(value)
             field_type = Type.pointer(
@@ -50,7 +63,7 @@ class BNHelpers(object):
                 )
             )
 
-            field_name = vmt.virtual_methods[value].split('.')[-1]
+            field_name = method_name.split('.')[-1]
             vmt_struct.append(field_type, field_name)
 
         # Create VMT Structure
