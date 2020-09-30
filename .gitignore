@@ -1,2 +1,18 @@
-.vscode/
-*.pyc
+*
+!/**/
+
+# Github files
+!/.gitignore
+!/.travis.yml
+!/.editorconfig
+!/CODE_OF_CONDUCT.md
+!/LICENSE
+!/README.md
+!/TODO.md
+
+# Plugin
+!/examples/*.py
+!/examples/README.md
+!/examples/assets/*.png
+!/*.py
+/generate_plugininfo.py
