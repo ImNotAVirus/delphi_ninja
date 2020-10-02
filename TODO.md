@@ -18,3 +18,4 @@
 ## TODO
 
 - [ ] Support 64 bits binaries (`read32` -> `read64`, offsets, ...)
+- [ ] Support all architecture (even `raw` ~> remove hardcoded `bv.sections['CODE']`)
