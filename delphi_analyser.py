@@ -4,8 +4,8 @@ import copy
 from binaryninja import BinaryReader, BinaryView, LogLevel
 from typing import List, Mapping, Union
 
-from constants import VMTOffsets
-from bnlogger import BNLogger
+from .constants import VMTOffsets
+from .bnlogger import BNLogger
 
 
 MATCH_CLASS_NAME = re.compile(rb'^[\w.:]+$')
@@ -225,7 +225,7 @@ class DelphiClass(object):
         address_size = self._bv.address_size
         offsets = self.vmt_offsets.__dict__.items()
         offset_map = {y:x for x, y in offsets}
-        tables_addr = self.__get_vmt_tables_addr()
+        tables_addr = self._get_vmt_tables_addr()
 
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent + address_size):
             return False
@@ -273,9 +273,7 @@ class DelphiClass(object):
         return class_name_addr
 
 
-    # Private methods
-
-    def __get_vmt_tables_addr(self) -> Union[None, List[int]]:
+    def _get_vmt_tables_addr(self) -> Union[None, List[int]]:
         if not self.seek_to_vmt_offset(self.vmt_offsets.cVmtIntfTable):
             return
 
