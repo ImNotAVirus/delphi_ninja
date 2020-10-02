@@ -1,12 +1,12 @@
 from binaryninja import BinaryView, Symbol, SymbolType, types, Type
 
-from .delphi_analyser import DelphiClass
+from .delphi_analyser import DelphiVMT
 from .constants import VMTFieldTypes
 
 
 class BNHelpers(object):
     @staticmethod
-    def create_vmt_struct(bv: BinaryView, vmt: DelphiClass) -> bool:
+    def create_vmt_struct(bv: BinaryView, vmt: DelphiVMT) -> bool:
         if not vmt.is_valid:
             return False
 
@@ -31,7 +31,7 @@ class BNHelpers(object):
     # Protected methods
 
     @staticmethod
-    def _add_vmt_fields(bv: BinaryView, vmt: DelphiClass, out_struct: types.Structure) -> bool:
+    def _add_vmt_fields(bv: BinaryView, vmt: DelphiVMT, out_struct: types.Structure) -> bool:
         address_size = bv.address_size
         field_types = VMTFieldTypes(bv.arch)
         vmt_offsets = vmt.vmt_offsets
@@ -52,7 +52,7 @@ class BNHelpers(object):
 
 
     @staticmethod
-    def _add_vmt_methods(bv: BinaryView, vmt: DelphiClass, out_struct: types.Structure) -> bool:
+    def _add_vmt_methods(bv: BinaryView, vmt: DelphiVMT, out_struct: types.Structure) -> bool:
         address_size = bv.address_size
 
         if not vmt.seek_to_vmt_offset(vmt.vmt_offsets.cVmtParent + address_size):
@@ -105,7 +105,7 @@ class BNHelpers(object):
     # Private methods
 
     @staticmethod
-    def __create_class_name_type(bv: BinaryView, vmt: DelphiClass, out_struct: types.Structure) -> bool:
+    def __create_class_name_type(bv: BinaryView, vmt: DelphiVMT, out_struct: types.Structure) -> bool:
         vmt_offsets = vmt.vmt_offsets
 
         if not vmt.seek_to_vmt_offset(vmt_offsets.cVmtClassName):
