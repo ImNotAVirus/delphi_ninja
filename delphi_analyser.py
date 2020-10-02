@@ -57,7 +57,7 @@ class DelphiVMT(object):
     def __str__(self):
         if not self._is_valid:
             return f'<InvalidVmt address=0x{self._vmt_address:08X}>'
-        return f'<{self._class_name} start=0x{self.start:08X} size=0x{self._instance_size:X}>'
+        return f'<{self._class_name} start=0x{self.start:08X} instance_size=0x{self._instance_size:X}>'
 
 
     ## Properties
