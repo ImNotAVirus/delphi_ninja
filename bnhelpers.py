@@ -91,7 +91,7 @@ class BNHelpers(object):
                 bv.arch,
                 Type.function(
                     function.return_type,
-                    [x.type for x in function.parameter_vars],
+                    [(Type.void() if x.type is None else x.type) for x in function.parameter_vars],
                     function.calling_convention
                 )
             )
