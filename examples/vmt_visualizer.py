@@ -8,7 +8,7 @@ import sys
 from os import path
 
 # from delphi_ninja.bnlogger import BNLogger
-# from delphi_ninja.delphi_analyser import ClassFinder, DelphiVMT
+# from delphi_ninja.delphi_analyser import DelphiAnalyzer, DelphiVMT
 
 module_dir = path.dirname(path.dirname(path.abspath(__file__)))
 module_name = path.basename(module_dir)
@@ -17,7 +17,7 @@ sys.path.insert(0, module_parent)
 delphi_ninja = importlib.import_module(module_name)
 
 BNLogger = delphi_ninja.bnlogger.BNLogger
-ClassFinder = delphi_ninja.delphi_analyser.ClassFinder
+DelphiAnalyzer = delphi_ninja.delphi_analyser.DelphiAnalyzer
 DelphiVMT = delphi_ninja.delphi_analyser.DelphiVMT
 
 
@@ -58,11 +58,11 @@ def main(target: str, delphi_version: int):
     BNLogger.log('File loaded')
     BNLogger.log('Searching for VMT...')
 
-    finder = ClassFinder(bv, delphi_version)
-    finder.update_analysis_and_wait()
+    analyzer = DelphiAnalyzer(bv, delphi_version)
+    analyzer.update_analysis_and_wait()
 
     BNLogger.log('Creating Graph...')
-    vmt_map = {vmt.start:vmt for vmt in finder.vmt_list}
+    vmt_map = {vmt.start:vmt for vmt in analyzer.vmt_list}
     create_graph(vmt_map)
 
 
