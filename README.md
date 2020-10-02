@@ -5,7 +5,15 @@ _Find Delphi VMTs and generate their structures_
 
 ## Description:
 
-TODO: Description
+This plugin is intended to facilitate the revese engineering of binaries written in Delphi.
+
+For that, it:
+
+- Finds the Virtual Method Table (VMT) of Delphi classes
+- Creates a structure for each VMT (class name, instance size, virtual methods, etc...)
+- Creates a tag for each VMT in order to locate them more easily
+
+![example](./assets/example.png)
 
 ## Installation Instructions
 
@@ -21,11 +29,20 @@ No special instructions, package manager is recommended
 
 No special instructions, package manager is recommended
 
+## Examples
+
+This repo contains different examples to show how the plugin works in scripting mode.  
+You can view them [here](./examples).
+
+**Warning**: although DelphiNinja does not require dependencies, some examples may require dependencies.  
+For more information, please refer to this [page](./examples/README.md).
+
 ## Minimum Version
 
 This plugin requires the following minimum version of Binary Ninja:
 
-* 0
+* release: N/A
+* dev: 2440
 
 ## License
 
