@@ -9,9 +9,9 @@
 - [x] Get ClassMethods from a VMT address
 - [ ] Get ClassMembers for a DelphiVMT (inspect methods?)
 - [x] Create Binary Ninja structure for each VMT
-- [ ] Create Binary Ninja structure for a DelphiVMT
-- [ ] For ClassMethods, set `this` type (`ECX` I think) to structure
-- [ ] Export all Delphi structures to C/C++ code
+- [ ] Define a Binary Ninja structure for a Delphi Class
+- [ ] For ClassMethods, set `this` type (register) to the previously created structure
+- [ ] Export all Delphi Class structures to C/C++ code
 - [ ] Auto detect Delphi version
 - [ ] Load IDR's Knowledge bases for system types
 
