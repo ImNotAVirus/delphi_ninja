@@ -1,26 +1,26 @@
 import binaryninja
-from binaryninja import BackgroundTaskThread, BinaryView, PluginCommand, Tag
+from binaryninja import BackgroundTaskThread, BinaryView, PluginCommand, Tag, interaction
 
 from .bnhelpers import BNHelpers
 from .delphi_analyser import ClassFinder, DelphiClass
 
 
 class AnalizeDelphiVmtsTask(BackgroundTaskThread):
-    def __init__(self, bv: BinaryView, tag_type: Tag):
-        BackgroundTaskThread.__init__(self, "Searching for VMTs...", can_cancel=True)
+    def __init__(self, bv: BinaryView, tag_type: Tag, delphi_version: int):
+        BackgroundTaskThread.__init__(self, 'Searching for VMTs...', can_cancel=True)
         self._bv = bv
         self._tag_type = tag_type
+        self._delphi_version = delphi_version
 
 
     def run(self):
         self._bv.begin_undo_actions()
 
-        delphi_version = 7
-        finder = ClassFinder(self._bv, delphi_version)
+        finder = ClassFinder(self._bv, self._delphi_version)
         addy = finder.get_possible_vmt()
 
         while addy:
-            delphi_vmt = DelphiClass(self._bv, delphi_version, addy)
+            delphi_vmt = DelphiClass(self._bv, self._delphi_version, addy)
 
             if not delphi_vmt.is_valid:
                 addy = finder.get_possible_vmt()
@@ -57,7 +57,32 @@ class AnalizeDelphiVmtsTask(BackgroundTaskThread):
 def analyze_delphi_vmts(bv: BinaryView):
     type_name = 'Delphi VMTs'
     tt = bv.tag_types[type_name] if type_name in bv.tag_types else bv.create_tag_type(type_name, '🔍')
-    t = AnalizeDelphiVmtsTask(bv, tt)
+
+    choices = [
+        'Delphi 2',
+        'Delphi 3',
+        'Delphi 4',
+        'Delphi 5',
+        'Delphi 6',
+        'Delphi 7',
+        'Delphi 2005',
+        'Delphi 2006',
+        'Delphi 2007',
+        'Delphi 2009',
+        'Delphi 2010',
+        'Delphi 2011',
+        'Delphi 2012',
+        'Delphi 2013',
+        'Delphi 2014'
+    ]
+
+    index = interaction.get_choice_input(
+        'Please, select the Delphi version',
+        'Delphi version',
+        choices
+    )
+
+    t = AnalizeDelphiVmtsTask(bv, tt, int(choices[index][7:]))
     t.start()
 
 
