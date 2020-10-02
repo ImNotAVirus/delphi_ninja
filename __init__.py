@@ -1,5 +1,6 @@
 import binaryninja
 from binaryninja import BackgroundTaskThread, BinaryView, PluginCommand, Tag, interaction
+from binaryninja.enums import MessageBoxButtonSet, MessageBoxIcon, MessageBoxButtonResult
 
 from .bnhelpers import BNHelpers
 from .delphi_analyser import ClassFinder, DelphiClass
@@ -54,6 +55,30 @@ class AnalizeDelphiVmtsTask(BackgroundTaskThread):
         self._bv.update_analysis()
 
 
+def clear_tags(bv: BinaryView, tag_type_name: str):
+    code_section = bv.sections['CODE']
+    start = code_section.start
+    end = code_section.end
+    tags = [(x, y) for x, y in bv.data_tags if y.type.name == tag_type_name]
+
+    if not tags:
+        return
+
+    result = interaction.show_message_box(
+        'Delete old tag?',
+        ('DelphiNinja has detected several tags associated with VMTs. Would you like to '
+        'remove these tags?\nWARNING: This will not remove associated structures.'),
+        MessageBoxButtonSet.YesNoButtonSet,
+        MessageBoxIcon.QuestionIcon
+    )
+
+    if result != MessageBoxButtonResult.YesButton:
+        return
+
+    for addy, tag in tags:
+        bv.remove_user_data_tag(addy, tag)
+
+
 def analyze_delphi_vmts(bv: BinaryView):
     type_name = 'Delphi VMTs'
     tt = bv.tag_types[type_name] if type_name in bv.tag_types else bv.create_tag_type(type_name, '🔍')
@@ -81,6 +106,8 @@ def analyze_delphi_vmts(bv: BinaryView):
         'Delphi version',
         choices
     )
+
+    clear_tags(bv, type_name)
 
     t = AnalizeDelphiVmtsTask(bv, tt, int(choices[index][7:]))
     t.start()
