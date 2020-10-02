@@ -41,7 +41,7 @@ For more information, please refer to this [page](./examples/README.md).
 
 ## Minimum Version
 
-This plugin requires the following minimum version of Binary Ninja:
+This plugin has been tested with the following minimum version of Binary Ninja:
 
 * release: N/A
 * dev: 2440
