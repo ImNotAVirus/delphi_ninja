@@ -1,14 +1,18 @@
 #!/usr/bin/env python
-import os, sys
+import importlib
+import sys
+from os import path
+
+module_dir = path.dirname(path.dirname(path.abspath(__file__)))
+module_name = path.basename(module_dir)
+module_parent = path.dirname(module_dir)
+sys.path.insert(0, module_parent)
+delphi_ninja = importlib.import_module(module_name)
+
 from binaryninja import BinaryViewType
 
-sys.path.insert(0, os.path.pardir)
-from delphi_analyser import ClassFinder, DelphiVMT
-from bnlogger import BNLogger
-
-
-def analyze_callback(vmt: DelphiVMT):
-    BNLogger.log(vmt)
+from delphi_ninja.bnlogger import BNLogger
+from delphi_ninja.delphi_analyser import ClassFinder
 
 
 def main(target: str, delphi_version: int):
@@ -31,7 +35,7 @@ def main(target: str, delphi_version: int):
     BNLogger.log('Searching for VMT...')
 
     finder = ClassFinder(bv, delphi_version)
-    finder.update_analysis_and_wait(analyze_callback)
+    finder.update_analysis_and_wait(lambda vmt: BNLogger.log(vmt))
 
 
 if __name__ == '__main__':
