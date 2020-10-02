@@ -1,14 +1,22 @@
 #!/usr/bin/env python
-import os, sys
-from binaryninja import BinaryViewType
+import importlib
+import sys
+from os import path
 
-sys.path.insert(0, os.path.pardir)
-from delphi_analyser import ClassFinder, DelphiVMT
-from bnlogger import BNLogger
-from bnhelpers import BNHelpers
+module_dir = path.dirname(path.dirname(path.abspath(__file__)))
+module_name = path.basename(module_dir)
+module_parent = path.dirname(module_dir)
+sys.path.insert(0, module_parent)
+delphi_ninja = importlib.import_module(module_name)
+
+from binaryninja import BinaryView, BinaryViewType
+
+from delphi_ninja.delphi_analyser import ClassFinder, DelphiVMT
+from delphi_ninja.bnlogger import BNLogger
+from delphi_ninja.bnhelpers import BNHelpers
 
 
-def analyze_callback(vmt: DelphiVMT):
+def analyze_callback(vmt: DelphiVMT, bv: BinaryView):
     BNLogger.log(f'Creating type for: {vmt}')
     BNHelpers.create_vmt_struct(bv, vmt)
 
@@ -33,7 +41,7 @@ def main(target: str, delphi_version: int):
     BNLogger.log('Searching for VMT...')
 
     finder = ClassFinder(bv, delphi_version)
-    finder.update_analysis_and_wait(analyze_callback)
+    finder.update_analysis_and_wait(lambda vmt: analyze_callback(vmt, bv))
 
     bv.update_analysis_and_wait()
     bv.create_database(f'{target}.bndb')
