@@ -3,7 +3,7 @@ from binaryninja import BackgroundTaskThread, BinaryView, PluginCommand, Tag, in
 from binaryninja.enums import MessageBoxButtonSet, MessageBoxIcon, MessageBoxButtonResult
 
 from .bnhelpers import BNHelpers
-from .delphi_analyser import ClassFinder, DelphiVMT
+from .delphi_analyser import DelphiAnalyzer, DelphiVMT
 
 
 class AnalyzeDelphiVmtsTask(BackgroundTaskThread):
@@ -17,8 +17,8 @@ class AnalyzeDelphiVmtsTask(BackgroundTaskThread):
     def run(self):
         self._bv.begin_undo_actions()
 
-        finder = ClassFinder(self._bv, self._delphi_version)
-        finder.update_analysis_and_wait(self.analyze_callback)
+        analyzer = DelphiAnalyzer(self._bv, self._delphi_version)
+        analyzer.update_analysis_and_wait(self.analyze_callback)
 
         self._bv.commit_undo_actions()
         self._bv.update_analysis()
@@ -41,8 +41,8 @@ class AnalyzeDelphiVmtsTask(BackgroundTaskThread):
             if function.name.startswith('sub_') or function.name == 'vmt' + delphi_vmt.class_name:
                 self._bv.remove_user_function(function)
 
-        # TODO: Clean that later (define a property for VMT tables)
-        for table_addr in delphi_vmt._get_vmt_tables_addr():
+        # Same here
+        for table_addr in delphi_vmt.table_list.keys():
             for function in self._bv.get_functions_containing(table_addr):
                 if function.name.startswith('sub_'):
                     self._bv.remove_user_function(function)

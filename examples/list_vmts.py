@@ -6,7 +6,7 @@ import sys
 from os import path
 
 # from delphi_ninja.bnlogger import BNLogger
-# from delphi_ninja.delphi_analyser import ClassFinder
+# from delphi_ninja.delphi_analyser import DelphiAnalyzer
 
 module_dir = path.dirname(path.dirname(path.abspath(__file__)))
 module_name = path.basename(module_dir)
@@ -14,7 +14,7 @@ module_parent = path.dirname(module_dir)
 sys.path.insert(0, module_parent)
 delphi_ninja = importlib.import_module(module_name)
 BNLogger = delphi_ninja.bnlogger.BNLogger
-ClassFinder = delphi_ninja.delphi_analyser.ClassFinder
+DelphiAnalyzer = delphi_ninja.delphi_analyser.DelphiAnalyzer
 
 
 def main(target: str, delphi_version: int):
@@ -36,8 +36,8 @@ def main(target: str, delphi_version: int):
     BNLogger.log('-----------------------------')
     BNLogger.log('Searching for VMT...')
 
-    finder = ClassFinder(bv, delphi_version)
-    finder.update_analysis_and_wait(lambda vmt: BNLogger.log(vmt))
+    analyzer = DelphiAnalyzer(bv, delphi_version)
+    analyzer.update_analysis_and_wait(lambda vmt: BNLogger.log(vmt))
 
 
 if __name__ == '__main__':

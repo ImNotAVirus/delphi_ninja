@@ -30,21 +30,25 @@ class DelphiVMT(object):
         self._class_name = ''
         self._instance_size = 0
         self._parent_vmt = 0
+        self._table_list: Mapping[int, str] = {}
         self._virtual_methods: Mapping[int, str] = {}
 
         if not self._check_self_ptr():
             return
 
-        if not self._parse_name():
+        if not self._resolve_name():
             return
 
-        if not self._parse_instance_size():
+        if not self._resolve_instance_size():
             return
 
-        if not self._parse_parent_vmt():
+        if not self._resolve_parent_vmt():
             return
 
-        if not self._parse_virtual_methods():
+        if not self._resolve_table_list():
+            return
+
+        if not self._resolve_virtual_methods():
             return
 
         self._is_valid = True
@@ -57,7 +61,9 @@ class DelphiVMT(object):
     def __str__(self):
         if not self._is_valid:
             return f'<InvalidVmt address=0x{self._vmt_address:08X}>'
-        return f'<{self._class_name} start=0x{self.start:08X} instance_size=0x{self._instance_size:X}>'
+
+        return (f'<{self._class_name} start=0x{self.start:08X} '
+            f'instance_size=0x{self._instance_size:X}>')
 
 
     ## Properties
@@ -81,6 +87,10 @@ class DelphiVMT(object):
     @property
     def parent_vmt(self) -> int:
         return self._parent_vmt
+
+    @property
+    def table_list(self) -> Mapping[int, str]:
+        return self._table_list
 
     @property
     def virtual_methods(self) -> Mapping[int, str]:
@@ -107,7 +117,7 @@ class DelphiVMT(object):
     ## Public API
 
     def seek_to_code(self, address: int) -> bool:
-        if not self._isValidCodeAdr(address):
+        if not self._is_valid_code_addr(address):
             return False
 
         self._br.seek(address)
@@ -115,7 +125,7 @@ class DelphiVMT(object):
 
 
     def seek_to_code_offset(self, offset: int) -> bool:
-        if not self._isValidCodeAdr(self._code_section.start + offset):
+        if not self._is_valid_code_addr(self._code_section.start + offset):
             return False
 
         self._br.seek(self._code_section.start + offset)
@@ -123,7 +133,7 @@ class DelphiVMT(object):
 
 
     def seek_to_vmt_offset(self, offset: int) -> bool:
-        if not self._isValidCodeAdr(self._vmt_address + offset):
+        if not self._is_valid_code_addr(self._vmt_address + offset):
             return False
 
         self._br.seek(self._vmt_address + offset)
@@ -148,7 +158,7 @@ class DelphiVMT(object):
         return self_ptr == self._vmt_address
 
 
-    def _parse_name(self) -> bool:
+    def _resolve_name(self) -> bool:
         class_name_addr = self._get_class_name_addr()
 
         if class_name_addr is None:
@@ -172,7 +182,7 @@ class DelphiVMT(object):
         return True
 
 
-    def _parse_instance_size(self) -> bool:
+    def _resolve_instance_size(self) -> bool:
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtInstanceSize):
             return False
 
@@ -180,7 +190,7 @@ class DelphiVMT(object):
         return True
 
 
-    def _parse_parent_vmt(self) -> bool:
+    def _resolve_parent_vmt(self) -> bool:
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent):
             return False
 
@@ -188,7 +198,7 @@ class DelphiVMT(object):
         return True
 
 
-    def _parse_virtual_methods(self) -> bool:
+    def _resolve_virtual_methods(self) -> bool:
         class_name_addr = self._get_class_name_addr()
 
         if class_name_addr is None:
@@ -197,7 +207,7 @@ class DelphiVMT(object):
         address_size = self._bv.address_size
         offsets = self.vmt_offsets.__dict__.items()
         offset_map = {y:x for x, y in offsets}
-        tables_addr = self._get_vmt_tables_addr()
+        tables_addr = self._table_list.keys()
 
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent + address_size):
             return False
@@ -208,7 +218,7 @@ class DelphiVMT(object):
             if field_value == 0:
                 continue
 
-            if not self._isValidCodeAdr(field_value):
+            if not self._is_valid_code_addr(field_value):
                 prev_offset = self._br.offset - address_size
                 raise RuntimeError(f'Invalid code address deteted at 0x{prev_offset:08X} '
                     '({self.class_name})\n If you think it\'s a bug, please open an issue on '
@@ -227,7 +237,31 @@ class DelphiVMT(object):
         return True
 
 
-    def _isValidCodeAdr(self, addy: int, allow_null=False) -> bool:
+    def _resolve_table_list(self) -> bool:
+        if not self.seek_to_vmt_offset(self.vmt_offsets.cVmtIntfTable):
+            return False
+
+        offsets = self._vmt_offsets.__dict__.items()
+        offset_map = {y:x[4:] for x, y in offsets}
+
+        stop_at = self._vmt_address + self._vmt_offsets.cVmtClassName
+
+        while self._br.offset != stop_at:
+            prev_br_offset = self._br.offset
+            address = self._br.read32()
+
+            if address < 1:
+                continue
+
+            if not self._is_valid_code_addr(address):
+                raise RuntimeError('Invalid table address detected')
+
+            self._table_list[address] = offset_map[prev_br_offset - self._vmt_address]
+
+        return True
+
+
+    def _is_valid_code_addr(self, addy: int, allow_null=False) -> bool:
         if addy == 0:
             return allow_null
         return addy >= self._code_section.start and addy < self._code_section.end
@@ -239,34 +273,13 @@ class DelphiVMT(object):
 
         class_name_addr = self._br.read32()
 
-        if not self._isValidCodeAdr(class_name_addr):
+        if not self._is_valid_code_addr(class_name_addr):
             return None
 
         return class_name_addr
 
 
-    def _get_vmt_tables_addr(self) -> Union[None, List[int]]:
-        if not self.seek_to_vmt_offset(self.vmt_offsets.cVmtIntfTable):
-            return
-
-        result = []
-        stop_at = self._vmt_address + self.vmt_offsets.cVmtClassName
-
-        while self._br.offset != stop_at:
-            address = self._br.read32()
-
-            if address < 1:
-                continue
-
-            if not self._isValidCodeAdr(address):
-                raise RuntimeError('Invalid table address detected')
-
-            result.append(address)
-
-        return result
-
-
-class ClassFinder(object):
+class DelphiAnalyzer(object):
     '''
     TODO: Doc
     '''
@@ -285,7 +298,6 @@ class ClassFinder(object):
     @property
     def delphi_version(self) -> int:
         return self._delphi_version
-
 
     @property
     def vmt_list(self) -> List[DelphiVMT]:
