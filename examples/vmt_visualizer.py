@@ -1,7 +1,14 @@
 #!/usr/bin/env python
+from binaryninja import BinaryViewType, LogLevel
+from graphviz import Digraph
+from typing import Dict
+
 import importlib
 import sys
 from os import path
+
+# from delphi_ninja.bnlogger import BNLogger
+# from delphi_ninja.delphi_analyser import ClassFinder, DelphiVMT
 
 module_dir = path.dirname(path.dirname(path.abspath(__file__)))
 module_name = path.basename(module_dir)
@@ -9,12 +16,9 @@ module_parent = path.dirname(module_dir)
 sys.path.insert(0, module_parent)
 delphi_ninja = importlib.import_module(module_name)
 
-from binaryninja import BinaryViewType, LogLevel
-from graphviz import Digraph
-from typing import Dict
-
-from delphi_ninja.bnlogger import BNLogger
-from delphi_ninja.delphi_analyser import ClassFinder, DelphiVMT
+BNLogger = delphi_ninja.bnlogger.BNLogger
+ClassFinder = delphi_ninja.delphi_analyser.ClassFinder
+DelphiVMT = delphi_ninja.delphi_analyser.DelphiVMT
 
 
 def create_graph(vmt_map: Dict[int, DelphiVMT]):

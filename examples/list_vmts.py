@@ -1,18 +1,20 @@
 #!/usr/bin/env python
+from binaryninja import BinaryViewType
+
 import importlib
 import sys
 from os import path
+
+# from delphi_ninja.bnlogger import BNLogger
+# from delphi_ninja.delphi_analyser import ClassFinder
 
 module_dir = path.dirname(path.dirname(path.abspath(__file__)))
 module_name = path.basename(module_dir)
 module_parent = path.dirname(module_dir)
 sys.path.insert(0, module_parent)
 delphi_ninja = importlib.import_module(module_name)
-
-from binaryninja import BinaryViewType
-
-from delphi_ninja.bnlogger import BNLogger
-from delphi_ninja.delphi_analyser import ClassFinder
+BNLogger = delphi_ninja.bnlogger.BNLogger
+ClassFinder = delphi_ninja.delphi_analyser.ClassFinder
 
 
 def main(target: str, delphi_version: int):

@@ -1,19 +1,23 @@
 #!/usr/bin/env python
+from binaryninja import BinaryView, BinaryViewType
+
 import importlib
 import sys
 from os import path
+
+# from delphi_ninja.delphi_analyser import ClassFinder, DelphiVMT
+# from delphi_ninja.bnlogger import BNLogger
+# from delphi_ninja.bnhelpers import BNHelpers
 
 module_dir = path.dirname(path.dirname(path.abspath(__file__)))
 module_name = path.basename(module_dir)
 module_parent = path.dirname(module_dir)
 sys.path.insert(0, module_parent)
 delphi_ninja = importlib.import_module(module_name)
-
-from binaryninja import BinaryView, BinaryViewType
-
-from delphi_ninja.delphi_analyser import ClassFinder, DelphiVMT
-from delphi_ninja.bnlogger import BNLogger
-from delphi_ninja.bnhelpers import BNHelpers
+ClassFinder = delphi_ninja.delphi_analyser.ClassFinder
+DelphiVMT = delphi_ninja.delphi_analyser.DelphiVMT
+BNLogger = delphi_ninja.bnlogger.BNLogger
+BNHelpers = delphi_ninja.bnhelpers.BNHelpers
 
 
 def analyze_callback(vmt: DelphiVMT, bv: BinaryView):
