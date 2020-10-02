@@ -13,6 +13,8 @@ For that, it:
 - Creates a structure for each VMT (class name, instance size, virtual methods, etc...)
 - Creates a tag for each VMT in order to locate them more easily
 
+**Warning**: This plugin currently only supports 32bits PE (Portable Executable). For more details on upcoming features, you can refer to [TODO.md](./TODO.md).
+
 ![example](./assets/example.png)
 
 ## Installation Instructions
