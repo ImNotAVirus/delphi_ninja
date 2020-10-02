@@ -48,6 +48,8 @@ def main(target: str, delphi_version: int):
     finder.update_analysis_and_wait(lambda vmt: analyze_callback(vmt, bv))
 
     bv.update_analysis_and_wait()
+
+    BNLogger.log(f'Saving database: `{target}.bndb`...')
     bv.create_database(f'{target}.bndb')
 
 
