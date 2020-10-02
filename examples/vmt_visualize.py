@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 import os, sys
-from binaryninja import BinaryView, BinaryViewType, LogLevel
+from binaryninja import BinaryViewType, LogLevel
 from typing import Dict
 from graphviz import Digraph
 
 sys.path.insert(0, os.path.pardir)
-from delphi_analyser import ClassFinder, DelphiClass
+from delphi_analyser import ClassFinder, DelphiVMT
 from bnlogger import BNLogger
 
 
-def create_graph(vmt_map: Dict[int, DelphiClass]):
+def create_graph(vmt_map: Dict[int, DelphiVMT]):
     g = Digraph('VMT')
 
     for vmt in vmt_map.values():
@@ -42,26 +42,15 @@ def main(target: str, delphi_version: int):
         print(f'Invalid binary path: {target}')
         exit(-1)
 
-    bv.update_analysis_and_wait()
-
     BNLogger.init_console()
     BNLogger.log('File loaded')
     BNLogger.log('Searching for VMT...')
 
     finder = ClassFinder(bv, delphi_version)
-    addy = finder.get_possible_vmt()
-    vmt_map = {}
-
-    while addy:
-        delphi_class = DelphiClass(bv, delphi_version, addy)
-        addy = finder.get_possible_vmt()
-
-        if not delphi_class.is_valid:
-            continue
-
-        vmt_map[delphi_class.start] = delphi_class
+    finder.update_analysis_and_wait()
 
     BNLogger.log('Creating Graph...')
+    vmt_map = {vmt.start:vmt for vmt in finder.vmt_list}
     create_graph(vmt_map)
 
 

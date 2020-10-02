@@ -2,7 +2,7 @@
 import re
 import copy
 from binaryninja import BinaryReader, BinaryView, LogLevel
-from typing import List, Mapping, Union
+from typing import Callable, List, Mapping, Union
 
 from .constants import VMTOffsets
 from .bnlogger import BNLogger
@@ -11,35 +11,7 @@ from .bnlogger import BNLogger
 MATCH_CLASS_NAME = re.compile(rb'^[\w.:]+$')
 
 
-class ClassFinder(object):
-    '''
-    TODO: Doc
-    '''
-
-    def __init__(self, bv: BinaryView, delphi_version: int):
-        self._bv = bv
-        self._br = BinaryReader(bv)
-        self._code_section = bv.sections['CODE']
-        self._vmt_offsets = VMTOffsets(delphi_version)
-        self.seek_to_code_offset(0)
-
-
-    def seek_to_code_offset(self, offset: int):
-        self._br.seek(self._code_section.start + offset)
-
-
-    def get_possible_vmt(self) -> int:
-        address_size = self._bv.arch.address_size
-        assert address_size == 4
-
-        while self._br.offset <= self._code_section.end - address_size:
-            begin = self._br.offset
-            class_vmt = self._br.read32()
-            if begin == class_vmt + self._vmt_offsets.cVmtSelfPtr:
-                return class_vmt
-
-
-class DelphiClass(object):
+class DelphiVMT(object):
     '''
     TODO: Doc
     '''
@@ -292,3 +264,71 @@ class DelphiClass(object):
             result.append(address)
 
         return result
+
+
+class ClassFinder(object):
+    '''
+    TODO: Doc
+    '''
+
+    def __init__(self, bv: BinaryView, delphi_version: int):
+        self._vmt_list: List[DelphiVMT] = []
+        self._bv = bv
+        self._br = BinaryReader(bv)
+        self._code_section = bv.sections['CODE']
+        self._delphi_version = delphi_version
+        self._vmt_offsets = VMTOffsets(delphi_version)
+
+
+    ## Properties
+
+    @property
+    def delphi_version(self) -> int:
+        return self._delphi_version
+
+
+    @property
+    def vmt_list(self) -> List[DelphiVMT]:
+        return self._vmt_list
+
+
+    ## Public API
+
+    def update_analysis_and_wait(self, callback: Callable[[DelphiVMT], None] = None):
+        self._vmt_list = []
+        self._seek_to_code_offset(0)
+
+        while True:
+            addy = self._get_possible_vmt()
+
+            if not addy:
+                break
+
+            delphi_vmt = DelphiVMT(self._bv, self._delphi_version, addy)
+
+            if not delphi_vmt.is_valid:
+                continue
+
+            self._vmt_list.append(delphi_vmt)
+
+            if callback is not None:
+                callback(delphi_vmt)
+
+
+    ## Protected methods
+
+    def _seek_to_code_offset(self, offset: int):
+        self._br.seek(self._code_section.start + offset)
+
+
+    def _get_possible_vmt(self) -> int:
+        address_size = self._bv.arch.address_size
+
+        if address_size != 4:
+            raise RuntimeError('Only 32 bits architectures are currently supported')
+
+        while self._br.offset <= self._code_section.end - address_size:
+            begin = self._br.offset
+            class_vmt = self._br.read32()
+            if begin == class_vmt + self._vmt_offsets.cVmtSelfPtr:
+                return class_vmt

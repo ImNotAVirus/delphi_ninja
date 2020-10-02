@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 import os, sys
-from binaryninja import BinaryView, BinaryViewType
+from binaryninja import BinaryViewType
 
 sys.path.insert(0, os.path.pardir)
-from delphi_analyser import ClassFinder, DelphiClass
+from delphi_analyser import ClassFinder, DelphiVMT
 from bnlogger import BNLogger
 from bnhelpers import BNHelpers
+
+
+def analyze_callback(vmt: DelphiVMT):
+    BNLogger.log(f'Creating type for: {vmt}')
+    BNHelpers.create_vmt_struct(bv, vmt)
 
 
 def main(target: str, delphi_version: int):
@@ -22,21 +27,13 @@ def main(target: str, delphi_version: int):
         print(f'Invalid binary path: {target}')
         exit(-1)
 
-    bv.update_analysis_and_wait()
-
     BNLogger.init_console()
     BNLogger.log('File loaded')
     BNLogger.log('-----------------------------')
     BNLogger.log('Searching for VMT...')
 
     finder = ClassFinder(bv, delphi_version)
-    addy = finder.get_possible_vmt()
-
-    while addy:
-        vmt = DelphiClass(bv, delphi_version, addy)
-        BNLogger.log(f'Creating type for: {vmt}')
-        BNHelpers.create_vmt_struct(bv, vmt)
-        addy = finder.get_possible_vmt()
+    finder.update_analysis_and_wait(analyze_callback)
 
     bv.update_analysis_and_wait()
     bv.create_database(f'{target}.bndb')
