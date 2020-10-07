@@ -1,11 +1,18 @@
 #!/usr/bin/env python
+# Little trick to 'fix' circular dependncies (1)
+from __future__ import annotations
+
 import re
 import copy
 from binaryninja import BinaryReader, BinaryView, LogLevel
-from typing import Mapping, Union
+from typing import Mapping, Union, TYPE_CHECKING
 
-from ..constants import VMTOffsets
+from .constants import VMTOffsets
 from ..bnlogger import BNLogger
+
+# Little trick to 'fix' circular dependncies (2)
+if TYPE_CHECKING:
+    from .analyzer import DelphiAnalyzer
 
 
 MATCH_CLASS_NAME = re.compile(rb'^[\w.:]+$')
@@ -16,15 +23,15 @@ class DelphiVMT(object):
     TODO: Doc
     '''
 
-    def __init__(self, bv: BinaryView, delphi_version: int, address: int, offset_size = -1,
-            analyzer = None):
-        self._offset_size = offset_size if offset_size > 0 else bv.address_size
+    def __init__(self, bv: BinaryView, delphi_version: int, address: int,
+            analyzer: DelphiAnalyzer, offset_ptr_size = -1):
+        self._offset_ptr_size = offset_ptr_size if offset_ptr_size > 0 else bv.address_size
         self._vmt_address = address
+        self._analyzer = analyzer
         self._is_valid = False
         self._bv = bv
         self._br = BinaryReader(bv)
-        self._code_section = bv.sections['CODE']
-        self._vmt_offsets = VMTOffsets(delphi_version, self._offset_size)
+        self._vmt_offsets = analyzer.vmt_offsets
         self._class_name = ''
         self._instance_size = 0
         self._parent_vmt = 0
@@ -108,6 +115,10 @@ class DelphiVMT(object):
         return end - self.start
 
     @property
+    def offset_ptr_size(self) -> int:
+        return self._offset_ptr_size
+
+    @property
     def br_offset(self) -> int:
         return self._br.offset
 
@@ -115,7 +126,7 @@ class DelphiVMT(object):
     ## Public API
 
     def seek_to_code(self, address: int) -> bool:
-        if not self._is_valid_code_addr(address):
+        if not self._is_valid_addr(address):
             return False
 
         self._br.seek(address)
@@ -123,15 +134,15 @@ class DelphiVMT(object):
 
 
     def seek_to_code_offset(self, offset: int) -> bool:
-        if not self._is_valid_code_addr(self._code_section.start + offset):
+        if not self._is_valid_addr(self._analyzer.start + offset):
             return False
 
-        self._br.seek(self._code_section.start + offset)
+        self._br.seek(self._analyzer.start + offset)
         return True
 
 
     def seek_to_vmt_offset(self, offset: int) -> bool:
-        if not self._is_valid_code_addr(self._vmt_address + offset):
+        if not self._is_valid_addr(self._vmt_address + offset):
             return False
 
         self._br.seek(self._vmt_address + offset)
@@ -142,14 +153,10 @@ class DelphiVMT(object):
         return self._br.read8()
 
 
-    def read32(self) -> Union[None, int]:
-        return self._br.read32()
-
-
     def read_ptr(self) -> Union[None, int]:
-        if self._offset_size == 4:
+        if self._offset_ptr_size == 4:
             return self._br.read32()
-        elif self._offset_size == 8:
+        elif self._offset_ptr_size == 8:
             return self._br.read64()
 
 
@@ -209,12 +216,11 @@ class DelphiVMT(object):
         if class_name_addr is None:
             return False
 
-        address_size = self._bv.address_size
         offsets = self.vmt_offsets.__dict__.items()
         offset_map = {y:x for x, y in offsets}
         tables_addr = self._table_list.keys()
 
-        if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent + address_size):
+        if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent + self._offset_ptr_size):
             return False
 
         while self._br.offset < class_name_addr and self._br.offset not in tables_addr:
@@ -223,13 +229,13 @@ class DelphiVMT(object):
             if field_value == 0:
                 continue
 
-            if not self._is_valid_code_addr(field_value):
-                prev_offset = self._br.offset - address_size
+            if not self._is_valid_addr(field_value):
+                prev_offset = self._br.offset - self._offset_ptr_size
                 raise RuntimeError(f'Invalid code address deteted at 0x{prev_offset:08X} '
                     '({self.class_name})\n If you think it\'s a bug, please open an issue on '
                     'Github with the used binary or the full VMT (fields + VMT) as an attachment')
 
-            field_offset = self._br.offset - self._vmt_address - address_size
+            field_offset = self._br.offset - self._vmt_address - self._offset_ptr_size
 
             if field_offset in offset_map:
                 # Remove `cVmt` prefix
@@ -258,7 +264,7 @@ class DelphiVMT(object):
             if address < 1:
                 continue
 
-            if not self._is_valid_code_addr(address):
+            if not self._is_valid_addr(address):
                 raise RuntimeError('Invalid table address detected')
 
             self._table_list[address] = offset_map[prev_br_offset - self._vmt_address]
@@ -266,10 +272,11 @@ class DelphiVMT(object):
         return True
 
 
-    def _is_valid_code_addr(self, addy: int, allow_null=False) -> bool:
+    def _is_valid_addr(self, addy: int, allow_null=False) -> bool:
         if addy == 0:
             return allow_null
-        return addy >= self._code_section.start and addy < self._code_section.end
+
+        return addy >= self._analyzer.start and addy < self._analyzer.end
 
 
     def _get_class_name_addr(self) -> Union[None, int]:
@@ -278,7 +285,7 @@ class DelphiVMT(object):
 
         class_name_addr = self.read_ptr()
 
-        if not self._is_valid_code_addr(class_name_addr):
+        if not self._is_valid_addr(class_name_addr):
             return None
 
         return class_name_addr

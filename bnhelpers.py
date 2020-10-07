@@ -1,7 +1,7 @@
 from binaryninja import BinaryView, Symbol, SymbolType, types, Type
 
 from .delphi import DelphiVMT
-from .constants import VMTFieldTypes
+from .delphi.constants import VMTFieldTypes
 
 
 class BNHelpers(object):
@@ -32,13 +32,13 @@ class BNHelpers(object):
 
     @staticmethod
     def _add_vmt_fields(bv: BinaryView, vmt: DelphiVMT, out_struct: types.Structure) -> bool:
-        address_size = bv.address_size
+        offset_ptr_size = vmt.offset_ptr_size
         field_types = VMTFieldTypes(bv.arch)
         vmt_offsets = vmt.vmt_offsets
         offsets = vmt_offsets.__dict__.items()
         offset_map = {y:x for x, y in offsets}
 
-        for offset in range(vmt_offsets.cVmtSelfPtr, vmt_offsets.cVmtParent+1, address_size):
+        for offset in range(vmt_offsets.cVmtSelfPtr, vmt_offsets.cVmtParent+1, offset_ptr_size):
             if offset == vmt_offsets.cVmtClassName:
                 if not BNHelpers.__create_class_name_type(bv, vmt, out_struct):
                     return False
@@ -53,9 +53,9 @@ class BNHelpers(object):
 
     @staticmethod
     def _add_vmt_methods(bv: BinaryView, vmt: DelphiVMT, out_struct: types.Structure) -> bool:
-        address_size = bv.address_size
+        offset_ptr_size = vmt.offset_ptr_size
 
-        if not vmt.seek_to_vmt_offset(vmt.vmt_offsets.cVmtParent + address_size):
+        if not vmt.seek_to_vmt_offset(vmt.vmt_offsets.cVmtParent + offset_ptr_size):
             return False
 
         for _ in range(len(vmt.virtual_methods)):
@@ -65,7 +65,7 @@ class BNHelpers(object):
                 continue
 
             if value not in vmt.virtual_methods:
-                prev_offset = vmt.br_offset - address_size
+                prev_offset = vmt.br_offset - offset_ptr_size
                 raise RuntimeError(
                     f'Invalid method address detected at 0x{prev_offset:08x} ({vmt.class_name})')
 
