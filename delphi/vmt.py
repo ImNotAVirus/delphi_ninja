@@ -2,10 +2,10 @@
 import re
 import copy
 from binaryninja import BinaryReader, BinaryView, LogLevel
-from typing import Callable, List, Mapping, Union
+from typing import Mapping, Union
 
-from .constants import VMTOffsets
-from .bnlogger import BNLogger
+from ..constants import VMTOffsets
+from ..bnlogger import BNLogger
 
 
 MATCH_CLASS_NAME = re.compile(rb'^[\w.:]+$')
@@ -16,17 +16,15 @@ class DelphiVMT(object):
     TODO: Doc
     '''
 
-    def __init__(self, bv: BinaryView, delphi_version: int, address: int):
-        # 64 bits is currently not supported
-        address_size = bv.arch.address_size
-        assert address_size == 4
-
+    def __init__(self, bv: BinaryView, delphi_version: int, address: int, offset_size = -1,
+            analyzer = None):
+        self._offset_size = offset_size if offset_size > 0 else bv.address_size
         self._vmt_address = address
         self._is_valid = False
         self._bv = bv
         self._br = BinaryReader(bv)
         self._code_section = bv.sections['CODE']
-        self._vmt_offsets = VMTOffsets(delphi_version)
+        self._vmt_offsets = VMTOffsets(delphi_version, self._offset_size)
         self._class_name = ''
         self._instance_size = 0
         self._parent_vmt = 0
@@ -148,13 +146,20 @@ class DelphiVMT(object):
         return self._br.read32()
 
 
+    def read_ptr(self) -> Union[None, int]:
+        if self._offset_size == 4:
+            return self._br.read32()
+        elif self._offset_size == 8:
+            return self._br.read64()
+
+
     ## Protected methods
 
     def _check_self_ptr(self) -> bool:
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtSelfPtr):
             return False
 
-        self_ptr = self._br.read32()
+        self_ptr = self.read_ptr()
         return self_ptr == self._vmt_address
 
 
@@ -186,7 +191,7 @@ class DelphiVMT(object):
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtInstanceSize):
             return False
 
-        self._instance_size = self._br.read32()
+        self._instance_size = self.read_ptr()
         return True
 
 
@@ -194,7 +199,7 @@ class DelphiVMT(object):
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtParent):
             return False
 
-        self._parent_vmt = self._br.read32()
+        self._parent_vmt = self.read_ptr()
         return True
 
 
@@ -213,7 +218,7 @@ class DelphiVMT(object):
             return False
 
         while self._br.offset < class_name_addr and self._br.offset not in tables_addr:
-            field_value = self._br.read32()
+            field_value = self.read_ptr()
 
             if field_value == 0:
                 continue
@@ -248,7 +253,7 @@ class DelphiVMT(object):
 
         while self._br.offset != stop_at:
             prev_br_offset = self._br.offset
-            address = self._br.read32()
+            address = self.read_ptr()
 
             if address < 1:
                 continue
@@ -271,76 +276,9 @@ class DelphiVMT(object):
         if not self.seek_to_vmt_offset(self._vmt_offsets.cVmtClassName):
             return None
 
-        class_name_addr = self._br.read32()
+        class_name_addr = self.read_ptr()
 
         if not self._is_valid_code_addr(class_name_addr):
             return None
 
         return class_name_addr
-
-
-class DelphiAnalyzer(object):
-    '''
-    TODO: Doc
-    '''
-
-    def __init__(self, bv: BinaryView, delphi_version: int):
-        self._vmt_list: List[DelphiVMT] = []
-        self._bv = bv
-        self._br = BinaryReader(bv)
-        self._code_section = bv.sections['CODE']
-        self._delphi_version = delphi_version
-        self._vmt_offsets = VMTOffsets(delphi_version)
-
-
-    ## Properties
-
-    @property
-    def delphi_version(self) -> int:
-        return self._delphi_version
-
-    @property
-    def vmt_list(self) -> List[DelphiVMT]:
-        return self._vmt_list
-
-
-    ## Public API
-
-    def update_analysis_and_wait(self, callback: Callable[[DelphiVMT], None] = None):
-        self._vmt_list = []
-        self._seek_to_code_offset(0)
-
-        while True:
-            addy = self._get_possible_vmt()
-
-            if not addy:
-                break
-
-            delphi_vmt = DelphiVMT(self._bv, self._delphi_version, addy)
-
-            if not delphi_vmt.is_valid:
-                continue
-
-            self._vmt_list.append(delphi_vmt)
-
-            if callback is not None:
-                callback(delphi_vmt)
-
-
-    ## Protected methods
-
-    def _seek_to_code_offset(self, offset: int):
-        self._br.seek(self._code_section.start + offset)
-
-
-    def _get_possible_vmt(self) -> int:
-        address_size = self._bv.arch.address_size
-
-        if address_size != 4:
-            raise RuntimeError('Only 32 bits architectures are currently supported')
-
-        while self._br.offset <= self._code_section.end - address_size:
-            begin = self._br.offset
-            class_vmt = self._br.read32()
-            if begin == class_vmt + self._vmt_offsets.cVmtSelfPtr:
-                return class_vmt

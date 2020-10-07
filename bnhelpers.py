@@ -1,6 +1,6 @@
 from binaryninja import BinaryView, Symbol, SymbolType, types, Type
 
-from .delphi_analyser import DelphiVMT
+from .delphi import DelphiVMT
 from .constants import VMTFieldTypes
 
 
@@ -59,7 +59,7 @@ class BNHelpers(object):
             return False
 
         for _ in range(len(vmt.virtual_methods)):
-            value = vmt.read32()
+            value = vmt.read_ptr()
 
             if value == 0:
                 continue
@@ -111,7 +111,7 @@ class BNHelpers(object):
         if not vmt.seek_to_vmt_offset(vmt_offsets.cVmtClassName):
             return False
 
-        class_name_ptr = vmt.read32()
+        class_name_ptr = vmt.read_ptr()
 
         if class_name_ptr is None:
             return False

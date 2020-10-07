@@ -3,7 +3,7 @@ from binaryninja import BackgroundTaskThread, BinaryView, PluginCommand, Tag, in
 from binaryninja.enums import MessageBoxButtonSet, MessageBoxIcon, MessageBoxButtonResult
 
 from .bnhelpers import BNHelpers
-from .delphi_analyser import DelphiAnalyzer, DelphiVMT
+from .delphi import DelphiAnalyzer, DelphiVMT
 
 
 class AnalyzeDelphiVmtsTask(BackgroundTaskThread):
@@ -49,9 +49,6 @@ class AnalyzeDelphiVmtsTask(BackgroundTaskThread):
 
 
 def clear_tags(bv: BinaryView, tag_type_name: str):
-    code_section = bv.sections['CODE']
-    start = code_section.start
-    end = code_section.end
     tags = [(x, y) for x, y in bv.data_tags if y.type.name == tag_type_name]
 
     if not tags:

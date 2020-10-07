@@ -5,7 +5,7 @@ import importlib
 import sys
 from os import path
 
-# from delphi_ninja.delphi_analyser import DelphiAnalyzer, DelphiVMT
+# from delphi_ninja.delphi import DelphiAnalyzer, DelphiVMT
 # from delphi_ninja.bnlogger import BNLogger
 # from delphi_ninja.bnhelpers import BNHelpers
 
@@ -14,8 +14,8 @@ module_name = path.basename(module_dir)
 module_parent = path.dirname(module_dir)
 sys.path.insert(0, module_parent)
 delphi_ninja = importlib.import_module(module_name)
-DelphiAnalyzer = delphi_ninja.delphi_analyser.DelphiAnalyzer
-DelphiVMT = delphi_ninja.delphi_analyser.DelphiVMT
+DelphiAnalyzer = delphi_ninja.delphi.DelphiAnalyzer
+DelphiVMT = delphi_ninja.delphi.DelphiVMT
 BNLogger = delphi_ninja.bnlogger.BNLogger
 BNHelpers = delphi_ninja.bnhelpers.BNHelpers
 
