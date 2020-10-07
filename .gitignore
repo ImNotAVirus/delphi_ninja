@@ -15,5 +15,5 @@
 !/examples/*.py
 !/examples/README.md
 !/examples/assets/*.png
-!/*.py
+!*.py
 /generate_plugininfo.py
