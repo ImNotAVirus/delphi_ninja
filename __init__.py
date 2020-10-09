@@ -4,20 +4,26 @@ from binaryninja.enums import MessageBoxButtonSet, MessageBoxIcon, MessageBoxBut
 
 from .bnhelpers import BNHelpers
 from .delphi import DelphiAnalyzer, DelphiVMT
+from .ui import modal
 
 
 class AnalyzeDelphiVmtsTask(BackgroundTaskThread):
-    def __init__(self, bv: BinaryView, tag_type: Tag, delphi_version: int):
+    def __init__(self, bv: BinaryView, tag_type: Tag, delphi_version: int, offset_ptr_size: int,
+                start: int, end: int):
         BackgroundTaskThread.__init__(self, 'Searching for VMTs...', can_cancel=True)
         self._bv = bv
         self._tag_type = tag_type
         self._delphi_version = delphi_version
+        self._offset_ptr_size = offset_ptr_size
+        self._search_start = start
+        self._search_end = end
 
 
     def run(self):
         self._bv.begin_undo_actions()
 
-        analyzer = DelphiAnalyzer(self._bv, self._delphi_version)
+        analyzer = DelphiAnalyzer(self._bv, self._delphi_version, self._offset_ptr_size,
+            self._search_start, self._search_end)
         analyzer.update_analysis_and_wait(self.analyze_callback)
 
         self._bv.commit_undo_actions()
@@ -73,33 +79,21 @@ def analyze_delphi_vmts(bv: BinaryView):
     type_name = 'Delphi VMTs'
     tt = bv.tag_types[type_name] if type_name in bv.tag_types else bv.create_tag_type(type_name, '🔍')
 
-    choices = [
-        'Delphi 2',
-        'Delphi 3',
-        'Delphi 4',
-        'Delphi 5',
-        'Delphi 6',
-        'Delphi 7',
-        'Delphi 2005',
-        'Delphi 2006',
-        'Delphi 2007',
-        'Delphi 2009',
-        'Delphi 2010',
-        'Delphi 2011',
-        'Delphi 2012',
-        'Delphi 2013',
-        'Delphi 2014'
-    ]
+    result = modal.show_delphi_modal(bv)
 
-    index = interaction.get_choice_input(
-        'Please, select the Delphi version',
-        'Delphi version',
-        choices
-    )
+    if result is None:
+        return
 
     clear_tags(bv, type_name)
 
-    t = AnalyzeDelphiVmtsTask(bv, tt, int(choices[index][7:]))
+    t = AnalyzeDelphiVmtsTask(
+        bv,
+        tt,
+        result['delphi_version'],
+        result['offset_ptr_size'],
+        result['start'],
+        result['end'])
+
     t.start()
 
 
