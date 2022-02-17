@@ -1,7 +1,7 @@
 from binaryninja import BinaryView, Symbol, SymbolType, types, Type
 
-from delphi_analyser import DelphiClass
-from constants import VMTFieldTypes
+from .delphi_analyser import DelphiClass
+from .constants import VMTFieldTypes
 
 
 class BNHelpers(object):

@@ -4,8 +4,8 @@ import copy
 from binaryninja import BinaryReader, BinaryView, LogLevel
 from typing import List, Mapping, Union
 
-from constants import VMTOffsets
-from bnlogger import BNLogger
+from .constants import VMTOffsets
+from .bnlogger import BNLogger
 
 
 MATCH_CLASS_NAME = re.compile(rb'^[\w.:]+$')

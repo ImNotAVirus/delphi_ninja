@@ -11,8 +11,7 @@
 !/TODO.md
 
 # Plugin
-!/examples/*.py
+!*.py
 !/examples/README.md
 !/examples/assets/*.png
-!/*.py
 /generate_plugininfo.py
