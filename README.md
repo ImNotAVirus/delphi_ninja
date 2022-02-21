@@ -1,4 +1,5 @@
-# Delphi VMT Analyzer (v0.1.1)
+# Delphi VMT Analyzer (v0.1.2)
+
 Author: **ImNotAVirus**
 
 _Find Delphi VMTs and generate their structures_
